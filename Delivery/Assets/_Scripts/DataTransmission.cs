@@ -6,50 +6,40 @@ using UnityEngine.Networking;
 
 public class DataTransmission : MonoBehaviour
 {
-    uint userId;
-    uint sessionId;
-    uint purchaseId;
+    uint currentUserId;
+    uint currentSessionId;
+    uint currentPurchaseId;
 
     private void OnEnable()
     {
-        Simulator.OnNewPlayer += SendPlayer;
-        Simulator.OnNewSession += SendSessionStart;
-        Simulator.OnEndSession += SendSessionClosing;
-        Simulator.OnBuyItem += SendBuyItem;
+        Simulator.OnNewPlayer += HandleNewPlayer;
+        Simulator.OnNewSession += HandleNewSession;
+        Simulator.OnEndSession += HandleEndSession;
+        Simulator.OnBuyItem += HandleBuyItem;
     }
     private void OnDisable()
     {
-        Simulator.OnNewPlayer -= SendPlayer;
-        Simulator.OnNewSession -= SendSessionStart;
-        Simulator.OnEndSession -= SendSessionClosing;
-        Simulator.OnBuyItem -= SendBuyItem;
+        Simulator.OnNewPlayer -= HandleNewPlayer;
+        Simulator.OnNewSession -= HandleNewSession;
+        Simulator.OnEndSession -= HandleEndSession;
+        Simulator.OnBuyItem -= HandleBuyItem;
     }
 
-    private void SendPlayer(string name, string country, DateTime date)
+    private void HandleNewPlayer(string name, string country, DateTime date)
     {
         StartCoroutine(UploadPlayer(name, country, date));
     }
-    private void SendBuyItem(int item, DateTime date)
+    private void HandleBuyItem(int item, DateTime date)
     {
         StartCoroutine(UploadItem(item, date));
     }
-    private void SendSessionStart(DateTime date)
+    private void HandleNewSession(DateTime date)
     {
         StartCoroutine(UploadSession(date, false));
     }
-    private void SendSessionClosing(DateTime date)
+    private void HandleEndSession(DateTime date)
     {
         StartCoroutine(UploadSession(date, true));
-    }
-
-    void Start()
-    {
-
-    }
-
-    private void Update()
-    {
-
     }
 
     IEnumerator UploadPlayer(string name, string country, DateTime date)
@@ -60,7 +50,6 @@ public class DataTransmission : MonoBehaviour
         form.AddField("Country", country);
         form.AddField("Date", date.ToString("yyyy-MM-dd HH:mm:ss"));
 
-
         UnityWebRequest www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Player_Data.php", form);
         yield return www.SendWebRequest();
 
@@ -70,27 +59,20 @@ public class DataTransmission : MonoBehaviour
         }
         else
         {
-            UnityEngine.Debug.Log("Player form upload complete!");
-            //Debug.Log(www.downloadHandler.text);
-
-
-            uint.TryParse(www.downloadHandler.text, out userId);
-            CallbackEvents.OnAddPlayerCallback.Invoke(userId);
-
+            UnityEngine.Debug.Log("Player data uploaded successfully.");
+            uint.TryParse(www.downloadHandler.text, out currentUserId);
+            CallbackEvents.OnAddPlayerCallback.Invoke(currentUserId);
         }
     }
-    IEnumerator UploadSession(DateTime uploadedDate, bool sessionInProgress)
+    IEnumerator UploadSession(DateTime date, bool sessionStart)
     {
         WWWForm form = new WWWForm();
         UnityWebRequest www;
 
-
-        if (!sessionInProgress)
+        if (!sessionStart)
         {
-            form.AddField("User_ID", userId.ToString());
-            form.AddField("Start_Session", uploadedDate.ToString("yyyy-MM-dd HH:mm:ss"));
-
-
+            form.AddField("User_ID", currentUserId.ToString());
+            form.AddField("Start_Session", date.ToString("yyyy-MM-dd HH:mm:ss"));
 
             www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Session_Data.php", form);
 
@@ -102,45 +84,29 @@ public class DataTransmission : MonoBehaviour
             }
             else
             {
-                UnityEngine.Debug.Log("Sessions form upload complete!");
-                //Debug.Log(www.downloadHandler.text);
-                uint.TryParse(www.downloadHandler.text, out sessionId);
-
-                CallbackEvents.OnNewSessionCallback.Invoke(sessionId);
-
+                UnityEngine.Debug.Log("Session data uploaded successfully.");
+                uint.TryParse(www.downloadHandler.text, out currentSessionId);
+                CallbackEvents.OnNewSessionCallback.Invoke(currentSessionId);
             }
         }
         else
         {
-            form.AddField("User_ID", userId.ToString());
-            form.AddField("End_Session", uploadedDate.ToString("yyyy-MM-dd HH:mm:ss"));
-            form.AddField("Session_ID", sessionId.ToString());
-
+            form.AddField("User_ID", currentUserId.ToString());
+            form.AddField("End_Session", date.ToString("yyyy-MM-dd HH:mm:ss"));
+            form.AddField("Session_ID", currentSessionId.ToString());
 
             www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Close_Session_Data.php", form);
 
-
-
-            yield return www.SendWebRequest();
-
-            //Debug.Log(www.downloadHandler.text);
+            yield return www.SendWebRequest();          
         }
-
-
-
-
-
-
-
     }
     IEnumerator UploadItem(int item, DateTime date)
     {
         WWWForm form = new WWWForm();
         form.AddField("Item", item);
-        form.AddField("User_ID", userId.ToString());
-        form.AddField("Session_ID", sessionId.ToString());
+        form.AddField("User_ID", currentUserId.ToString());
+        form.AddField("Session_ID", currentSessionId.ToString());
         form.AddField("Buy_Date", date.ToString("yyyy-MM-dd HH:mm:ss"));
-
 
         UnityWebRequest www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Purchase_Data.php", form);
         yield return www.SendWebRequest();
@@ -151,13 +117,9 @@ public class DataTransmission : MonoBehaviour
         }
         else
         {
-            UnityEngine.Debug.Log("Buy form upload complete!");
-            //Debug.Log(www.downloadHandler.text);
-
-            uint.TryParse(www.downloadHandler.text, out purchaseId);
-
+            UnityEngine.Debug.Log("Purchase data uploaded successfully.");          
+            uint.TryParse(www.downloadHandler.text, out currentPurchaseId);
             CallbackEvents.OnItemBuyCallback.Invoke();
-
         }
     }
 }
