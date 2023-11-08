@@ -1,22 +1,19 @@
 <?php
-include 'db_connect.php'; // Include the database connection
+include 'db_connect.php';
 
 $sessionId = $_POST["Session_ID"];
 $endSession = $_POST["End_Session"];
 
-echo $endSession;
+$stmt = $conn->prepare("UPDATE `Sessions` SET `endSession` = ? WHERE `sessionId` = ?");
+$stmt->bind_param("si", $endSession, $sessionId);
 
-if($conn->connect_error)
-{
-    die("Connection failed: " . $conn->connect_error);
+if ($stmt->execute()) {
+    echo "Session closed successfully";
+} else {
+    echo "Error: " . $stmt->error;
 }
-$sql = "UPDATE `Sessions` SET `endSession`= '$endSession' WHERE `sessionId`='$sessionId'";
 
-if ($conn->query($sql) == TRUE) 
-{
-  echo "Session closed successfully"; 
-} 
-
+$stmt->close();
 $conn->close();
 
 ?>

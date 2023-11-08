@@ -1,25 +1,21 @@
 <?php
-include 'db_connect.php'; // Include the database connection
+include 'db_connect.php';
 
 $userId = $_POST["User_ID"];
 $sessionId = $_POST["Session_ID"];
 $itemId = $_POST["Item"];
 $buyDate = $_POST["Buy_Date"];
 
-if($conn->connect_error)
-{
-    die("Connection failed: " . $conn->connect_error);
+$stmt = $conn->prepare("INSERT INTO `Purchases`(`userId`, `sessionId`, `itemId`, `buyDate`) VALUES (?, ?, ?, ?)");
+$stmt->bind_param("iiis", $userId, $sessionId, $itemId, $buyDate);
+
+if ($stmt->execute()) {
+    echo $conn->insert_id;
+} else {
+    echo "Error: " . $stmt->error;
 }
 
-$sql = "INSERT INTO `Purchases`(`userId`, `sessionId`, `itemId`, `buyDate`) VALUES('$userId','$sessionId', '$itemId', '$buyDate')";
-
-if ($conn->query($sql) == TRUE) 
-{
-    $purchaseId = $conn->insert_id;
-    echo $purchaseId;    
-}
-
-else {echo "Error";}
- 
+$stmt->close();
 $conn->close();
+
 ?>

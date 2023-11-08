@@ -97,7 +97,8 @@ public class DataTransmission : MonoBehaviour
 
             www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Close_Session_Data.php", form);
 
-            yield return www.SendWebRequest();          
+            yield return www.SendWebRequest();
+            CallbackEvents.OnEndSessionCallback.Invoke(currentSessionId);
         }
     }
     IEnumerator UploadItem(int item, DateTime date)

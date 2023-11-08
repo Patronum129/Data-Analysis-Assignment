@@ -1,20 +1,19 @@
 <?php
-include 'db_connect.php'; // Include the database connection
+include 'db_connect.php';
 
 $userId = $_POST["User_ID"];
 $startSession = $_POST["Start_Session"];
 
-if($conn->connect_error)
-{
-    die("Connection failed: " . $conn->connect_error);
-}
-$sql ="INSERT INTO `Sessions`(`userId`, `startSession`)  VALUES ('$userId', '$startSession')";
+$stmt = $conn->prepare("INSERT INTO `Sessions`(`userId`, `startSession`) VALUES (?, ?)");
+$stmt->bind_param("is", $userId, $startSession);
 
-if ($conn->query($sql) == TRUE) 
-{       
-  $sessionId = $conn->insert_id;
-  echo $sessionId;
+if ($stmt->execute()) {
+    echo $conn->insert_id;
+} else {
+    echo "Error: " . $stmt->error;
 }
-  
-  $conn->close();
+
+$stmt->close();
+$conn->close();
+
 ?>

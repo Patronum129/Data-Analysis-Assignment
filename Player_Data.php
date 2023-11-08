@@ -1,21 +1,20 @@
 <?php
-include 'db_connect.php'; // Include the database connection
+include 'db_connect.php';
 
 $name = $_POST["Name"];
 $country = $_POST["Country"];
 $date = $_POST["Date"];
 
-if($conn->connect_error)
-{
-    die("Connection failed: " . $conn->connect_error);
+$stmt = $conn->prepare("INSERT INTO `Players`(`Name`, `Country`, `Date`) VALUES (?, ?, ?)");
+$stmt->bind_param("sss", $name, $country, $date);
+
+if ($stmt->execute()) {
+    echo $conn->insert_id;
+} else {
+    echo "Error: " . $stmt->error;
 }
 
-$sql = "INSERT INTO `Players`(`Name`, `Country`, `Date`) VALUES ('$name','$country', '$date')";
+$stmt->close();
+$conn->close();
 
-if ($conn->query($sql) == TRUE) {
-    $userId = $conn->insert_id;
-    echo $userId;
-  }
-  
-  $conn->close();
 ?>
