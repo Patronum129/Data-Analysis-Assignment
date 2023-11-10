@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -17,6 +16,7 @@ public class DataTransmission : MonoBehaviour
         Simulator.OnEndSession += HandleEndSession;
         Simulator.OnBuyItem += HandleBuyItem;
     }
+
     private void OnDisable()
     {
         Simulator.OnNewPlayer -= HandleNewPlayer;
@@ -29,23 +29,25 @@ public class DataTransmission : MonoBehaviour
     {
         StartCoroutine(UploadPlayer(name, country, date));
     }
-    private void HandleBuyItem(int item, DateTime date)
-    {
-        StartCoroutine(UploadItem(item, date));
-    }
+
     private void HandleNewSession(DateTime date)
+    {
+        StartCoroutine(UploadSession(date, true));
+    }
+
+    private void HandleEndSession(DateTime date)
     {
         StartCoroutine(UploadSession(date, false));
     }
-    private void HandleEndSession(DateTime date)
+
+    private void HandleBuyItem(int item, DateTime date)
     {
-        StartCoroutine(UploadSession(date, true));
+        StartCoroutine(UploadItem(item, date));
     }
 
     IEnumerator UploadPlayer(string name, string country, DateTime date)
     {
         WWWForm form = new WWWForm();
-
         form.AddField("Name", name);
         form.AddField("Country", country);
         form.AddField("Date", date.ToString("yyyy-MM-dd HH:mm:ss"));
@@ -55,56 +57,71 @@ public class DataTransmission : MonoBehaviour
 
         if (www.result != UnityWebRequest.Result.Success)
         {
-            UnityEngine.Debug.Log(www.error);
+            UnityEngine.Debug.LogError("Player data upload failed: " + www.error);
         }
         else
         {
-            UnityEngine.Debug.Log("Player data uploaded successfully.");
-            uint.TryParse(www.downloadHandler.text, out currentUserId);
-            CallbackEvents.OnAddPlayerCallback.Invoke(currentUserId);
-        }
-    }
-    IEnumerator UploadSession(DateTime date, bool sessionStart)
-    {
-        WWWForm form = new WWWForm();
-        UnityWebRequest www;
-
-        if (!sessionStart)
-        {
-            form.AddField("User_ID", currentUserId.ToString());
-            form.AddField("Start_Session", date.ToString("yyyy-MM-dd HH:mm:ss"));
-
-            www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Session_Data.php", form);
-
-            yield return www.SendWebRequest();
-
-            if (www.result != UnityWebRequest.Result.Success)
+            string answer = www.downloadHandler.text.Trim(new char[] { '\uFEFF', '\u200B', ' ', '\t', '\r', '\n' });
+            if (uint.TryParse(answer, out uint parsedId) && parsedId > 0)
             {
-                UnityEngine.Debug.Log(www.error);
+                currentUserId = parsedId;
+                CallbackEvents.OnAddPlayerCallback.Invoke(currentUserId);
             }
             else
             {
-                UnityEngine.Debug.Log("Session data uploaded successfully.");
-                uint.TryParse(www.downloadHandler.text, out currentSessionId);
-                CallbackEvents.OnNewSessionCallback.Invoke(currentSessionId);
+                UnityEngine.Debug.LogError("Invalid user ID received: " + www.downloadHandler.text);
             }
+        }
+    }
+
+    IEnumerator UploadSession(DateTime date, bool sessionStart)
+    {
+        WWWForm form = new WWWForm();
+        form.AddField("User_ID", currentUserId.ToString());
+        if (sessionStart)
+        {
+            form.AddField("Start_Session", date.ToString("yyyy-MM-dd HH:mm:ss"));
         }
         else
         {
-            form.AddField("User_ID", currentUserId.ToString());
             form.AddField("End_Session", date.ToString("yyyy-MM-dd HH:mm:ss"));
             form.AddField("Session_ID", currentSessionId.ToString());
+        }
 
-            www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Close_Session_Data.php", form);
+        string url = sessionStart ? "https://citmalumnes.upc.es/~hangx/Session_Data.php" : "https://citmalumnes.upc.es/~hangx/Close_Session_Data.php";
+        UnityWebRequest www = UnityWebRequest.Post(url, form);
+        yield return www.SendWebRequest();
 
-            yield return www.SendWebRequest();
-            CallbackEvents.OnEndSessionCallback.Invoke(currentSessionId);
+        if (www.result != UnityWebRequest.Result.Success)
+        {
+            UnityEngine.Debug.LogError("Session data upload failed: " + www.error);
+        }
+        else
+        {
+            if (sessionStart)
+            {
+                string answer = www.downloadHandler.text.Trim(new char[] { '\uFEFF', '\u200B', ' ', '\t', '\r', '\n' });
+                if (uint.TryParse(answer, out uint parsedId) && parsedId > 0)
+                {
+                    currentSessionId = parsedId;
+                    CallbackEvents.OnNewSessionCallback.Invoke(currentSessionId);
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("Invalid session ID received: " + www.downloadHandler.text);
+                }
+            }
+            else
+            {
+                CallbackEvents.OnEndSessionCallback.Invoke(currentSessionId);
+            }
         }
     }
+
     IEnumerator UploadItem(int item, DateTime date)
     {
         WWWForm form = new WWWForm();
-        form.AddField("Item", item);
+        form.AddField("Item", item.ToString());
         form.AddField("User_ID", currentUserId.ToString());
         form.AddField("Session_ID", currentSessionId.ToString());
         form.AddField("Buy_Date", date.ToString("yyyy-MM-dd HH:mm:ss"));
@@ -114,13 +131,20 @@ public class DataTransmission : MonoBehaviour
 
         if (www.result != UnityWebRequest.Result.Success)
         {
-            UnityEngine.Debug.Log(www.error);
+            UnityEngine.Debug.LogError("Purchase data upload failed: " + www.error);
         }
         else
         {
-            UnityEngine.Debug.Log("Purchase data uploaded successfully.");          
-            uint.TryParse(www.downloadHandler.text, out currentPurchaseId);
-            CallbackEvents.OnItemBuyCallback.Invoke();
+            string answer = www.downloadHandler.text.Trim(new char[] { '\uFEFF', '\u200B', ' ', '\t', '\r', '\n' });
+            if (uint.TryParse(answer, out uint parsedId) && parsedId > 0)
+            {
+                currentPurchaseId = parsedId;
+                CallbackEvents.OnItemBuyCallback.Invoke();
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("Invalid purchase ID received: " + www.downloadHandler.text);
+            }
         }
     }
 }
