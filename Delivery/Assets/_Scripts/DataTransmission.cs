@@ -52,24 +52,26 @@ public class DataTransmission : MonoBehaviour
         form.AddField("Country", country);
         form.AddField("Date", date.ToString("yyyy-MM-dd HH:mm:ss"));
 
-        UnityWebRequest www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Player_Data.php", form);
-        yield return www.SendWebRequest();
+        using (UnityWebRequest www = UnityWebRequest.Post("https://citmalumnes.upc.es/~hangx/Player_Data.php", form))
+        {
+            yield return www.SendWebRequest();
 
-        if (www.result != UnityWebRequest.Result.Success)
-        {
-            UnityEngine.Debug.LogError("Player data upload failed: " + www.error);
-        }
-        else
-        {
-            string answer = www.downloadHandler.text.Trim(new char[] { '\uFEFF', '\u200B', ' ', '\t', '\r', '\n' });
-            if (uint.TryParse(answer, out uint parsedId) && parsedId > 0)
+            if (www.result != UnityWebRequest.Result.Success)
             {
-                currentUserId = parsedId;
-                CallbackEvents.OnAddPlayerCallback.Invoke(currentUserId);
+                UnityEngine.Debug.LogError("Player data upload failed: " + www.error);
             }
             else
             {
-                UnityEngine.Debug.LogError("Invalid user ID received: " + www.downloadHandler.text);
+                string answer = www.downloadHandler.text.Trim(new char[] { '\uFEFF', '\u200B', ' ', '\t', '\r', '\n' });
+                if (uint.TryParse(answer, out uint parsedId) && parsedId > 0)
+                {
+                    currentUserId = parsedId;
+                    CallbackEvents.OnAddPlayerCallback.Invoke(currentUserId);
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("Invalid user ID received: " + answer);
+                }
             }
         }
     }
@@ -78,27 +80,15 @@ public class DataTransmission : MonoBehaviour
     {
         WWWForm form = new WWWForm();
         form.AddField("User_ID", currentUserId.ToString());
-        if (sessionStart)
+
+        if (sessionStart) // If starting a new session
         {
             form.AddField("Start_Session", date.ToString("yyyy-MM-dd HH:mm:ss"));
-        }
-        else
-        {
-            form.AddField("End_Session", date.ToString("yyyy-MM-dd HH:mm:ss"));
-            form.AddField("Session_ID", currentSessionId.ToString());
-        }
+            string url = "https://citmalumnes.upc.es/~hangx/Session_Data.php";
+            UnityWebRequest www = UnityWebRequest.Post(url, form);
+            yield return www.SendWebRequest();
 
-        string url = sessionStart ? "https://citmalumnes.upc.es/~hangx/Session_Data.php" : "https://citmalumnes.upc.es/~hangx/Close_Session_Data.php";
-        UnityWebRequest www = UnityWebRequest.Post(url, form);
-        yield return www.SendWebRequest();
-
-        if (www.result != UnityWebRequest.Result.Success)
-        {
-            UnityEngine.Debug.LogError("Session data upload failed: " + www.error);
-        }
-        else
-        {
-            if (sessionStart)
+            if (www.result == UnityWebRequest.Result.Success)
             {
                 string answer = www.downloadHandler.text.Trim(new char[] { '\uFEFF', '\u200B', ' ', '\t', '\r', '\n' });
                 if (uint.TryParse(answer, out uint parsedId) && parsedId > 0)
@@ -108,15 +98,34 @@ public class DataTransmission : MonoBehaviour
                 }
                 else
                 {
-                    UnityEngine.Debug.LogError("Invalid session ID received: " + www.downloadHandler.text);
+                    UnityEngine.Debug.LogError("Invalid session ID received: " + answer);
                 }
             }
             else
             {
-                CallbackEvents.OnEndSessionCallback.Invoke(currentSessionId);
+                UnityEngine.Debug.LogError("Session start data upload failed: " + www.error);
+            }
+        }
+        else // If ending a session
+        {
+            form.AddField("End_Session", date.ToString("yyyy-MM-dd HH:mm:ss"));
+            form.AddField("Session_ID", currentSessionId.ToString());
+
+            string url = "https://citmalumnes.upc.es/~hangx/Close_Session_Data.php";
+            UnityWebRequest www = UnityWebRequest.Post(url, form);
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                //CallbackEvents.OnEndSessionCallback.Invoke(currentSessionId);
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("Session end data upload failed: " + www.error);
             }
         }
     }
+
 
     IEnumerator UploadItem(int item, DateTime date)
     {
