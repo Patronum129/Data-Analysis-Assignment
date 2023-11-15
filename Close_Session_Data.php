@@ -11,7 +11,8 @@ $stmt->bind_param("si", $endSession, $sessionId);
 
 if ($stmt->execute()) {
     if ($stmt->affected_rows > 0) {
-        echo "Session closed successfully";
+        //echo "Session closed successfully";
+        echo $endSession;
     } else {
         error_log("No session updated in Close_Session_Data.php");
         echo "No session updated";
